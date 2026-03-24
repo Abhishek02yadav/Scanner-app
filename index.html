@@ -53,12 +53,12 @@
 let html5QrCode;
 let scannedSet = new Set();
 
-// 🔥 AUTO START CAMERA
+// 🔥 AUTO START
 window.onload = function () {
   startScanner('environment');
 };
 
-// 🔥 START SCANNER (FIXED)
+// 🔥 START SCANNER
 function startScanner(cameraType) {
 
   if (html5QrCode) {
@@ -71,7 +71,7 @@ function startScanner(cameraType) {
     { facingMode: cameraType },
     {
       fps: 10,
-      qrbox: { width: 300, height: 120 }, // 🔥 barcode optimized
+      qrbox: { width: 300, height: 120 },
       aspectRatio: 1.0
     },
     onScanSuccess,
@@ -88,12 +88,11 @@ function stopScanner() {
   }
 }
 
-// 🔥 SCAN SUCCESS
+// 🔥 SCAN SUCCESS (FIXED WITH JSONP)
 function onScanSuccess(decodedText) {
 
   console.log("Scanned:", decodedText);
 
-  // ❌ duplicate check
   if (scannedSet.has(decodedText)) {
     console.log("Duplicate ignored");
     return;
@@ -101,47 +100,45 @@ function onScanSuccess(decodedText) {
 
   scannedSet.add(decodedText);
 
-  // 🔊 sound
   document.getElementById("beep").play();
 
-  // 🔥 FETCH PRODUCT
-  fetch("https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec?barcode=" + decodedText)
-    .then(res => res.json())
-    .then(product => {
+  // 🔥 JSONP CALL (CORS FIX)
+  let script = document.createElement("script");
+  script.src = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec?barcode=" 
+                + decodedText + "&callback=handleResponse";
 
-      if (!product || !product.name) {
-        alert("❌ Product not found");
-        return;
-      }
-
-      console.log("Product:", product);
-
-      // 🔥 ADD TO TABLE
-      addToScanTable(product);
-
-      // 🔥 SEND TO SALES PAGE
-      if (window.opener && window.opener.addRow) {
-        window.opener.addRow(product);
-      } else {
-        console.log("Sales page not connected");
-      }
-
-    })
-    .catch(err => console.error("Fetch Error:", err));
+  document.body.appendChild(script);
 }
 
-// 🔥 IGNORE ERRORS (IMPORTANT)
-function onScanError(error) {
-  // ignore continuous scan errors
+// 🔥 HANDLE API RESPONSE
+function handleResponse(product) {
+
+  console.log("Product:", product);
+
+  if (!product || !product.name) {
+    alert("❌ Product not found");
+    return;
+  }
+
+  addToScanTable(product);
+
+  // 🔥 SEND TO SALES PAGE
+  if (window.opener && window.opener.addRow) {
+    window.opener.addRow(product);
+  } else {
+    console.log("Sales page not connected");
+  }
 }
 
-// 🔥 ADD ROW TO SCANNER TABLE
+// 🔥 IGNORE ERRORS
+function onScanError(error) {}
+
+// 🔥 ADD TO TABLE
 function addToScanTable(product) {
 
   const table = document.getElementById("scanTable");
   let rows = table.querySelectorAll("tr");
 
-  // 🔁 increase qty if exists
   for (let row of rows) {
     if (row.cells[0].innerText == product.barcode) {
       let qtyCell = row.cells[2];
@@ -150,7 +147,6 @@ function addToScanTable(product) {
     }
   }
 
-  // ➕ new row
   let row = table.insertRow();
 
   row.insertCell(0).innerText = product.barcode;
