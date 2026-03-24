@@ -1,30 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Ficokart Scanner</title>
+  <title>Ficokart Scanner Pro</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
-    body { font-family: Arial; text-align: center; }
+    body { font-family: Arial; text-align: center; background:#f4f6f8; }
+    h2 { margin-top: 10px; }
     #reader { width: 300px; margin: auto; }
-    button { padding: 10px; margin: 5px; }
+
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 95%;
+      background: white;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+
+    th { background: #2c7be5; color: white; }
+
+    .btn {
+      padding: 10px;
+      margin: 10px;
+      border: none;
+      background: #2c7be5;
+      color: white;
+      cursor: pointer;
+    }
   </style>
 </head>
 
 <body>
 
-<h2>📷 Ficokart Scanner</h2>
+<h2>📦 Ficokart Scanner Pro</h2>
 
 <div id="reader"></div>
 
-<br>
+<button class="btn" onclick="stopScanner()">Stop Scanner</button>
 
-<button onclick="startCamera('environment')">Back Camera</button>
-<button onclick="startCamera('user')">Front Camera</button>
-<button onclick="stopScanner()">Stop</button>
+<h3>📊 Scan History</h3>
 
-<h3>📦 Scanned Items</h3>
-<table border="1" id="table">
+<table id="table">
   <tr>
     <th>Barcode</th>
     <th>Item Name</th>
@@ -33,48 +53,98 @@
 </table>
 
 <script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec";
+
 let scanner;
+let scannedItems = {};
 
-function startCamera(mode) {
-  document.getElementById("reader").innerHTML = "";
-
-  scanner = new Html5Qrcode("reader");
-
-  scanner.start(
-    { facingMode: mode },
-    { fps: 10, qrbox: 250 },
-    (barcode) => {
-      console.log("Scanned:", barcode);
-
-      google.script.run.withSuccessHandler(function(item) {
-        if(item) {
-          addRow(barcode, item.name);
-        } else {
-          alert("Product not found");
-        }
-      }).getProductByBarcode(barcode);
-    }
-  );
+// 🔊 Sound
+function beep() {
+  let audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
+  audio.play();
 }
 
-function stopScanner() {
-  if (scanner) {
-    scanner.stop();
+// 📳 Vibration
+function vibrate() {
+  if (navigator.vibrate) {
+    navigator.vibrate(200);
   }
 }
 
-function addRow(barcode, name) {
+// 📊 Table update
+function updateTable(product) {
   let table = document.getElementById("table");
+  let barcode = product.barcode;
 
-  let row = table.insertRow(-1);
-  row.insertCell(0).innerText = barcode;
-  row.insertCell(1).innerText = name;
+  if (scannedItems[barcode]) {
+    scannedItems[barcode].qty++;
 
-  let qtyCell = row.insertCell(2);
-  let input = document.createElement("input");
-  input.value = 1;
-  qtyCell.appendChild(input);
+    let row = document.getElementById(barcode);
+    row.cells[2].innerText = scannedItems[barcode].qty;
+  } else {
+    scannedItems[barcode] = {
+      name: product.name,
+      qty: 1
+    };
+
+    let row = table.insertRow();
+    row.id = barcode;
+
+    row.insertCell(0).innerText = barcode;
+    row.insertCell(1).innerText = product.name;
+    row.insertCell(2).innerText = 1;
+  }
 }
+
+// 🔥 MAIN SCAN FUNCTION
+function onScanSuccess(decodedText) {
+  beep();
+  vibrate();
+
+  console.log("Scanned:", decodedText);
+
+  // 🔗 Fetch product from Google Sheet
+  fetch(WEB_APP_URL + "?barcode=" + decodedText)
+    .then(res => res.json())
+    .then(product => {
+      console.log("Product:", product);
+
+      if (product && product.name) {
+        updateTable(product);
+      } else {
+        alert("❌ Product not found in Inventory!");
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("⚠️ Server error!");
+    });
+}
+
+// 📷 Start scanner
+function startScanner() {
+  scanner = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(devices => {
+    if (devices.length) {
+      scanner.start(
+        devices[0].id,
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      );
+    }
+  }).catch(err => {
+    alert("Camera Error: " + err);
+  });
+}
+
+// 🛑 Stop scanner
+function stopScanner() {
+  if (scanner) scanner.stop();
+}
+
+// 🚀 Auto start
+startScanner();
 </script>
 
 </body>
