@@ -1,128 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Ficokart Scanner Pro</title>
+  <title>Ficokart Scanner</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
-    body { font-family: Arial; text-align: center; background:#f4f6f8; }
-    h2 { margin-top: 10px; }
+    body { font-family: Arial; text-align: center; }
     #reader { width: 300px; margin: auto; }
-
-    table {
-      margin: 20px auto;
-      border-collapse: collapse;
-      width: 90%;
-      background: white;
-    }
-
-    th, td {
-      padding: 10px;
-      border: 1px solid #ddd;
-    }
-
-    th { background: #2c7be5; color: white; }
-
-    .btn {
-      padding: 10px;
-      margin: 10px;
-      border: none;
-      background: #2c7be5;
-      color: white;
-      cursor: pointer;
-    }
+    button { padding: 10px; margin: 5px; }
   </style>
 </head>
 
 <body>
 
-<h2>📦 Ficokart Scanner Pro</h2>
+<h2>📷 Ficokart Scanner</h2>
 
 <div id="reader"></div>
 
-<button class="btn" onclick="stopScanner()">Stop Scanner</button>
+<br>
 
-<h3>📊 Scan History</h3>
+<button onclick="startCamera('environment')">Back Camera</button>
+<button onclick="startCamera('user')">Front Camera</button>
+<button onclick="stopScanner()">Stop</button>
 
-<table id="table">
+<h3>📦 Scanned Items</h3>
+<table border="1" id="table">
   <tr>
     <th>Barcode</th>
+    <th>Item Name</th>
     <th>Qty</th>
   </tr>
 </table>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec";
-
 let scanner;
-let scannedItems = {};
 
-function beep() {
-  let audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
-  audio.play();
-}
+function startCamera(mode) {
+  document.getElementById("reader").innerHTML = "";
 
-function vibrate() {
-  if (navigator.vibrate) {
-    navigator.vibrate(200);
-  }
-}
-
-function updateTable(barcode) {
-  let table = document.getElementById("table");
-
-  if (scannedItems[barcode]) {
-    scannedItems[barcode]++;
-    
-    let row = document.getElementById(barcode);
-    row.cells[1].innerText = scannedItems[barcode];
-  } else {
-    scannedItems[barcode] = 1;
-
-    let row = table.insertRow();
-    row.id = barcode;
-
-    row.insertCell(0).innerText = barcode;
-    row.insertCell(1).innerText = 1;
-  }
-}
-
-function sendToSheet(barcode) {
-  fetch(WEB_APP_URL, {
-    method: "POST",
-    body: JSON.stringify({ barcode: barcode })
-  });
-}
-
-function onScanSuccess(decodedText) {
-  beep();
-  vibrate();
-
-  updateTable(decodedText);
-  sendToSheet(decodedText);
-}
-
-function startScanner() {
   scanner = new Html5Qrcode("reader");
 
-  Html5Qrcode.getCameras().then(devices => {
-    if (devices.length) {
-      scanner.start(
-        devices[0].id,
-        { fps: 10, qrbox: 250 },
-        onScanSuccess
-      );
+  scanner.start(
+    { facingMode: mode },
+    { fps: 10, qrbox: 250 },
+    (barcode) => {
+      console.log("Scanned:", barcode);
+
+      google.script.run.withSuccessHandler(function(item) {
+        if(item) {
+          addRow(barcode, item.name);
+        } else {
+          alert("Product not found");
+        }
+      }).getProductByBarcode(barcode);
     }
-  }).catch(err => {
-    alert("Camera Error: " + err);
-  });
+  );
 }
 
 function stopScanner() {
-  if (scanner) scanner.stop();
+  if (scanner) {
+    scanner.stop();
+  }
 }
 
-startScanner();
+function addRow(barcode, name) {
+  let table = document.getElementById("table");
+
+  let row = table.insertRow(-1);
+  row.insertCell(0).innerText = barcode;
+  row.insertCell(1).innerText = name;
+
+  let qtyCell = row.insertCell(2);
+  let input = document.createElement("input");
+  input.value = 1;
+  qtyCell.appendChild(input);
+}
 </script>
 
 </body>
