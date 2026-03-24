@@ -62,8 +62,19 @@ window.onload = function () {
 function startScanner(cameraType) {
 
   if (html5QrCode) {
-    html5QrCode.stop().catch(()=>{});
+    html5QrCode.stop().then(() => {
+      html5QrCode.clear();
+      startNewScanner(cameraType);
+    }).catch(() => {
+      startNewScanner(cameraType);
+    });
+  } else {
+    startNewScanner(cameraType);
   }
+}
+
+// 🔥 NEW HELPER FUNCTION
+function startNewScanner(cameraType) {
 
   html5QrCode = new Html5Qrcode("reader");
 
@@ -83,7 +94,11 @@ function startScanner(cameraType) {
 function stopScanner() {
   if (html5QrCode) {
     html5QrCode.stop()
-      .then(() => console.log("Scanner stopped"))
+      .then(() => {
+        html5QrCode.clear();
+        html5QrCode = null;
+        console.log("Scanner stopped");
+      })
       .catch(err => console.error(err));
   }
 }
