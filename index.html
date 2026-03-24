@@ -1,34 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Ficokart Scanner Pro</title>
+  <title>Ficokart Scanner</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
-    body { font-family: Arial; text-align: center; background:#f4f6f8; }
-    h2 { margin-top: 10px; }
-    #reader { width: 300px; margin: auto; }
-
-    table {
-      margin: 20px auto;
-      border-collapse: collapse;
-      width: 95%;
-      background: white;
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #f5f5f5;
     }
-
-    th, td {
-      padding: 10px;
-      border: 1px solid #ddd;
+    #reader {
+      width: 300px;
+      margin: auto;
     }
-
-    th { background: #2c7be5; color: white; }
-
-    .btn {
+    button {
+      margin: 5px;
       padding: 10px;
-      margin: 10px;
-      border: none;
-      background: #2c7be5;
-      color: white;
       cursor: pointer;
     }
   </style>
@@ -36,115 +24,118 @@
 
 <body>
 
-<h2>📦 Ficokart Scanner Pro</h2>
+<h2>📷 Ficokart Scanner</h2>
 
 <div id="reader"></div>
 
-<button class="btn" onclick="stopScanner()">Stop Scanner</button>
+<br>
 
-<h3>📊 Scan History</h3>
+<button onclick="startScanner('environment')">Back Camera</button>
+<button onclick="startScanner('user')">Front Camera</button>
+<button onclick="stopScanner()">Stop</button>
 
-<table id="table">
-  <tr>
-    <th>Barcode</th>
-    <th>Item Name</th>
-    <th>Qty</th>
-  </tr>
+<h3>📦 Scanned Items</h3>
+<table border="1" align="center">
+  <thead>
+    <tr>
+      <th>Barcode</th>
+      <th>Item Name</th>
+      <th>Qty</th>
+    </tr>
+  </thead>
+  <tbody id="scanTable"></tbody>
 </table>
 
+<audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec";
 
-let scanner;
-let scannedItems = {};
+let html5QrCode;
+let scannedSet = new Set(); // duplicate prevention
 
-// 🔊 Sound
-function beep() {
-  let audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
-  audio.play();
+// 🔥 START SCANNER
+function startScanner(cameraType) {
+  html5QrCode = new Html5Qrcode("reader");
+
+  html5QrCode.start(
+    { facingMode: cameraType },
+    { fps: 10, qrbox: 250 },
+    onScanSuccess
+  ).catch(err => console.error(err));
 }
 
-// 📳 Vibration
-function vibrate() {
-  if (navigator.vibrate) {
-    navigator.vibrate(200);
+// 🔥 STOP SCANNER
+function stopScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => {
+      console.log("Scanner stopped");
+    }).catch(err => console.error(err));
   }
 }
 
-// 📊 Table update
-function updateTable(product) {
-  let table = document.getElementById("table");
-  let barcode = product.barcode;
-
-  if (scannedItems[barcode]) {
-    scannedItems[barcode].qty++;
-
-    let row = document.getElementById(barcode);
-    row.cells[2].innerText = scannedItems[barcode].qty;
-  } else {
-    scannedItems[barcode] = {
-      name: product.name,
-      qty: 1
-    };
-
-    let row = table.insertRow();
-    row.id = barcode;
-
-    row.insertCell(0).innerText = barcode;
-    row.insertCell(1).innerText = product.name;
-    row.insertCell(2).innerText = 1;
-  }
-}
-
-// 🔥 MAIN SCAN FUNCTION
+// 🔥 ON SCAN SUCCESS
 function onScanSuccess(decodedText) {
-  beep();
-  vibrate();
-
   console.log("Scanned:", decodedText);
 
-  // 🔗 Fetch product from Google Sheet
-  fetch(WEB_APP_URL + "?barcode=" + decodedText)
+  // ❌ duplicate check
+  if (scannedSet.has(decodedText)) {
+    console.log("Duplicate ignored");
+    return;
+  }
+
+  scannedSet.add(decodedText);
+
+  // 🔊 sound
+  document.getElementById("beep").play();
+
+  // 🔥 FETCH PRODUCT FROM GOOGLE SHEET
+  fetch("https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec?barcode=" + decodedText)
     .then(res => res.json())
     .then(product => {
+
+      if (!product) {
+        alert("❌ Product not found");
+        return;
+      }
+
       console.log("Product:", product);
 
-      if (product && product.name) {
-        updateTable(product);
-      } else {
-        alert("❌ Product not found in Inventory!");
+      // 🔥 ADD TO TABLE UI
+      addToScanTable(product);
+
+      // 🔥 SEND TO SALES PAGE
+      if (window.opener && window.opener.addRow) {
+        window.opener.addRow(product);
       }
+
     })
-    .catch(err => {
-      console.error(err);
-      alert("⚠️ Server error!");
-    });
+    .catch(err => console.error(err));
 }
 
-// 📷 Start scanner
-function startScanner() {
-  scanner = new Html5Qrcode("reader");
 
-  Html5Qrcode.getCameras().then(devices => {
-    if (devices.length) {
-      scanner.start(
-        devices[0].id,
-        { fps: 10, qrbox: 250 },
-        onScanSuccess
-      );
+// 🔥 ADD TO SCANNER TABLE
+function addToScanTable(product) {
+  const table = document.getElementById("scanTable");
+
+  // check if already exists → increase qty
+  let rows = table.querySelectorAll("tr");
+
+  for (let row of rows) {
+    if (row.cells[0].innerText == product.barcode) {
+      let qtyCell = row.cells[2];
+      qtyCell.innerText = parseInt(qtyCell.innerText) + 1;
+      return;
     }
-  }).catch(err => {
-    alert("Camera Error: " + err);
-  });
+  }
+
+  // create new row
+  let row = table.insertRow();
+
+  row.insertCell(0).innerText = product.barcode;
+  row.insertCell(1).innerText = product.name;
+  row.insertCell(2).innerText = 1;
 }
 
-// 🛑 Stop scanner
-function stopScanner() {
-  if (scanner) scanner.stop();
-}
-
-// 🚀 Auto start
-startScanner();
 </script>
 
 </body>
