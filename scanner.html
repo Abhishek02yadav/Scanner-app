@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ficokart Scanner Pro</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body { font-family: Arial; text-align: center; background:#f4f6f8; }
+    h2 { margin-top: 10px; }
+    #reader { width: 300px; margin: auto; }
+
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 90%;
+      background: white;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+
+    th { background: #2c7be5; color: white; }
+
+    .btn {
+      padding: 10px;
+      margin: 10px;
+      border: none;
+      background: #2c7be5;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>📦 Ficokart Scanner Pro</h2>
+
+<div id="reader"></div>
+
+<button class="btn" onclick="stopScanner()">Stop Scanner</button>
+
+<h3>📊 Scan History</h3>
+
+<table id="table">
+  <tr>
+    <th>Barcode</th>
+    <th>Qty</th>
+  </tr>
+</table>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec";
+
+let scanner;
+let scannedItems = {};
+
+function beep() {
+  let audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
+  audio.play();
+}
+
+function vibrate() {
+  if (navigator.vibrate) {
+    navigator.vibrate(200);
+  }
+}
+
+function updateTable(barcode) {
+  let table = document.getElementById("table");
+
+  if (scannedItems[barcode]) {
+    scannedItems[barcode]++;
+    
+    let row = document.getElementById(barcode);
+    row.cells[1].innerText = scannedItems[barcode];
+  } else {
+    scannedItems[barcode] = 1;
+
+    let row = table.insertRow();
+    row.id = barcode;
+
+    row.insertCell(0).innerText = barcode;
+    row.insertCell(1).innerText = 1;
+  }
+}
+
+function sendToSheet(barcode) {
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    body: JSON.stringify({ barcode: barcode })
+  });
+}
+
+function onScanSuccess(decodedText) {
+  beep();
+  vibrate();
+
+  updateTable(decodedText);
+  sendToSheet(decodedText);
+}
+
+function startScanner() {
+  scanner = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(devices => {
+    if (devices.length) {
+      scanner.start(
+        devices[0].id,
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      );
+    }
+  }).catch(err => {
+    alert("Camera Error: " + err);
+  });
+}
+
+function stopScanner() {
+  if (scanner) scanner.stop();
+}
+
+startScanner();
+</script>
+
+</body>
+</html>
