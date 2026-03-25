@@ -108,21 +108,16 @@ function onScanSuccess(decodedText) {
 
   console.log("Scanned:", decodedText);
 
-  if (scannedSet.has(decodedText)) {
-    console.log("Duplicate ignored");
-    return;
-  }
-
+  if (scannedSet.has(decodedText)) return;
   scannedSet.add(decodedText);
 
   document.getElementById("beep").play();
 
-  // 🔥 JSONP CALL (CORS FIX)
-  let script = document.createElement("script");
-  script.src = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec?barcode=" 
-                + decodedText + "&callback=handleResponse";
+  // ✅ MAIN MAGIC LINE
+  if (window.opener && window.opener.handleScan) {
+    window.opener.handleScan(decodedText);
+  }
 
-  document.body.appendChild(script);
 }
 
 // 🔥 HANDLE API RESPONSE
