@@ -106,17 +106,20 @@ function stopScanner() {
 // 🔥 SCAN SUCCESS (FIXED WITH JSONP)
 function onScanSuccess(decodedText) {
 
-  console.log("Scanned:", decodedText);
-
   if (scannedSet.has(decodedText)) return;
   scannedSet.add(decodedText);
 
   document.getElementById("beep").play();
 
-  // ✅ MAIN MAGIC LINE
+  console.log("Scanned:", decodedText);
+
+  // ✅ MAIN FIX: Send to sales page
   if (window.opener && window.opener.handleScan) {
     window.opener.handleScan(decodedText);
+  } else {
+    alert("❌ Sales page not connected");
   }
+}
 
 }
 
