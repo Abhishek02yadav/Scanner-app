@@ -113,9 +113,10 @@ function onScanSuccess(decodedText) {
 
   console.log("Scanned:", decodedText);
 
-  // ✅ NEW METHOD: Send via localStorage
-  localStorage.setItem("scannedBarcode", decodedText);
+  // ✅ REDIRECT to sales page with barcode
+  const salesURL = "https://script.google.com/macros/s/AKfycbxQcqj_RVJsp8427u49Tk06_qK5eAUuO0KvJTvhMtJASwhhgVpL9dqy71C4ZZf7H1Ta/exec"; // Apps Script deployed URL
 
+  window.location.href = salesURL + "?barcode=" + decodedText;
 }
 
 // 🔥 HANDLE API RESPONSE
