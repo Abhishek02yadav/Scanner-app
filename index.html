@@ -113,13 +113,8 @@ function onScanSuccess(decodedText) {
 
   console.log("Scanned:", decodedText);
 
-  // ✅ MAIN FIX: Send to sales page
-  if (window.opener && window.opener.handleScan) {
-    window.opener.handleScan(decodedText);
-  } else {
-    alert("❌ Sales page not connected");
-  }
-}
+  // ✅ NEW METHOD: Send via localStorage
+  localStorage.setItem("scannedBarcode", decodedText);
 
 }
 
